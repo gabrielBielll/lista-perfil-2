@@ -91,10 +91,12 @@ afterEach(() => {
 describe('App.jsx - Orquestração e Integração com API', () => {
 
   it('Teste 1.1: Renderização com Sucesso na Carga de Dados da API', async () => {
-    const mockHorariosAPI = [
-      { psicologa_id: '1', horarios_disponiveis: { seg: ['09:00', '10:00'], ter: ['14:00'] } },
-      { psicologa_id: '2', horarios_disponiveis: { qua: ['11:00'] } },
-    ];
+    const mockHorariosAPI = {
+      psychologists: [
+        { psychologistId: '1', slots: [{ start: '2026-08-01T09:00:00-03:00' }, { start: '2026-08-01T10:00:00-03:00' }, { start: '2026-08-02T14:00:00-03:00' }] },
+        { psychologistId: '2', slots: [{ start: '2026-08-03T11:00:00-03:00' }] },
+      ],
+    };
     global.fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => mockHorariosAPI,
@@ -113,8 +115,8 @@ describe('App.jsx - Orquestração e Integração com API', () => {
     // Pegar a última chamada ao mock para garantir que temos as props após a resolução da API
     const lastCatalogoCallIndex = mockCatalogo.mock.calls.length - 1;
     const catalogoProps = mockCatalogo.mock.calls[lastCatalogoCallIndex][0];
-    expect(catalogoProps.psicologas.find(p => p.id === '1').horarios_disponiveis).toEqual({ seg: ['09:00', '10:00'], ter: ['14:00'] });
-    expect(catalogoProps.psicologas.find(p => p.id === '2').horarios_disponiveis).toEqual({ qua: ['11:00'] });
+    expect(catalogoProps.psicologas.find(p => p.id === '1').horarios_disponiveis).toEqual({ '2026-08-01': ['09:00', '10:00'], '2026-08-02': ['14:00'] });
+    expect(catalogoProps.psicologas.find(p => p.id === '2').horarios_disponiveis).toEqual({ '2026-08-03': ['11:00'] });
     expect(catalogoProps.psicologas.find(p => p.id === '3').horarios_disponiveis).toEqual({}); // Não estava na API, deve ser vazio
     expect(catalogoProps.isLoadingHorarios).toBe(false);
 
@@ -170,7 +172,7 @@ describe('App.jsx - Testes de Renderização Básica (Exemplo Anterior)', () => 
         // Mock de fetch para estes testes básicos, se necessário
         global.fetch.mockResolvedValue({
             ok: true,
-            json: async () => [] // Retorna vazio para não interferir com lógica específica de horários
+            json: async () => ({ psychologists: [] }) // Retorna vazio para não interferir com lógica específica de horários
         });
     });
 

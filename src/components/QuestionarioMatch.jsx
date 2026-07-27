@@ -5,6 +5,9 @@ import logger from '../utils/logger.js';
 
 function formatarDia(dia) {
     const mapa = { seg: "Segunda", ter: "Terça", qua: "Quarta", qui: "Quinta", sex: "Sexta", sab: "Sábado", dom: "Domingo" };
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dia)) {
+      return new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date(`${dia}T12:00:00-03:00`));
+    }
     return mapa[dia.toLowerCase()] || dia;
 }
 
@@ -244,7 +247,7 @@ const QuestionarioMatch = ({ onMatchComplete, psicologas, horariosGerais, isLoad
                             </>
                         ) : perguntaAtual === perguntasMatch.length ? (
                             <>
-                                <h3 className="match-pergunta">Quais dias e horários você tem disponivel?</h3>
+                                <h3 className="match-pergunta">Quais dias e horários funcionam para si?</h3>
                                 <p className="match-subpergunta">Selecione todas as opções que se encaixam na sua rotina. Isto nos ajuda a encontrar uma especialista com agenda compatível.</p>
                                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem', marginTop: '-0.5rem' }}>
                                     <button className="botao-pular" onClick={irParaProximaEtapa}>Pular esta etapa &rarr;</button>
@@ -254,7 +257,8 @@ const QuestionarioMatch = ({ onMatchComplete, psicologas, horariosGerais, isLoad
                                     {isLoadingHorarios ? (
                                         <p className="sem-horarios-texto">A carregar horários disponíveis...</p>
                                     ) : (
-                                        ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom']
+                                        Object.keys(horariosGerais)
+                                            .sort()
                                             .filter(dia => horariosGerais[dia] && horariosGerais[dia].length > 0)
                                             .map(dia => {
                                                 const horariosDoDia = horariosGerais[dia].map(hora => `${dia}:${hora}`);

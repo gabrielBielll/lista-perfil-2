@@ -4,6 +4,9 @@ import React from 'react';
 
 function traduzirDia(dia) {
     const mapaDias = { seg: "Segunda-feira", ter: "Terça-feira", qua: "Quarta-feira", qui: "Quinta-feira", sex: "Sexta-feira", sab: "Sábado", dom: "Domingo" };
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dia)) {
+        return new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date(`${dia}T12:00:00-03:00`));
+    }
     return mapaDias[dia.toLowerCase()] || dia;
 }
 

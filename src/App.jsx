@@ -11,7 +11,20 @@ import logger from './utils/logger.js';
 
 function traduzirDia(dia) {
     const mapaDias = { seg: "Segunda-feira", ter: "Terça-feira", qua: "Quarta-feira", qui: "Quinta-feira", sex: "Sexta-feira", sab: "Sábado", dom: "Domingo" };
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dia)) {
+        return new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date(`${dia}T12:00:00-03:00`));
+    }
     return mapaDias[dia.toLowerCase()] || dia;
+}
+
+function slotToDateAndTime(slot) {
+    const date = new Date(slot.start);
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+    const part = (type) => parts.find((item) => item.type === type)?.value;
+    return {
+        day: `${part('year')}-${part('month')}-${part('day')}`,
+        time: new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false }).format(date),
+    };
 }
 
 export default function App() {
@@ -26,7 +39,7 @@ export default function App() {
     const resultadoRef = useRef(null);
 
     const numeroClinica = '5521996561994';
-    const API_URL = 'https://lista-psis-api.onrender.com/api/horarios';
+    const API_URL = import.meta.env.VITE_API_URL || 'https://lista-psis-api.onrender.com';
 
     useEffect(() => {
         const dadosIniciais = psicologasData.map(psi => ({ ...psi, horarios_disponiveis: {} }));
@@ -37,16 +50,21 @@ export default function App() {
             setIsLoadingHorarios(true);
             setError(null);
             try {
-                const response = await fetch(API_URL);
+                const response = await fetch(`${API_URL}/api/availability`);
                 if (!response.ok) throw new Error(`A API de horários respondeu com status ${response.status}`);
                 
-                const horariosData = await response.json();
-                if (!Array.isArray(horariosData)) throw new Error("Formato de dados da API de horários inesperado.");
+                const availabilityData = await response.json();
+                if (!Array.isArray(availabilityData.psychologists)) throw new Error("Formato de dados da API de horários inesperado.");
 
-                const horariosMap = horariosData.reduce((acc, curr) => {
-                    if (curr.psicologa_id && curr.horarios_disponiveis) {
-                        acc[curr.psicologa_id] = curr.horarios_disponiveis;
-                    }
+                const horariosMap = availabilityData.psychologists.reduce((acc, curr) => {
+                    const byDate = (curr.slots || []).reduce((slotsByDate, slot) => {
+                        const { day, time } = slotToDateAndTime(slot);
+                        if (!slotsByDate[day]) slotsByDate[day] = [];
+                        slotsByDate[day].push(time);
+                        return slotsByDate;
+                    }, {});
+                    Object.values(byDate).forEach((times) => times.sort());
+                    acc[curr.psychologistId] = byDate;
                     return acc;
                 }, {});
 
@@ -56,13 +74,12 @@ export default function App() {
                 })));
                 
                 const todosOsHorarios = {};
-                horariosData.forEach(item => {
-                    if (item.horarios_disponiveis) {
-                        for (const dia in item.horarios_disponiveis) {
-                            if (!todosOsHorarios[dia]) todosOsHorarios[dia] = new Set();
-                            item.horarios_disponiveis[dia].forEach(hora => todosOsHorarios[dia].add(hora));
-                        }
-                    }
+                availabilityData.psychologists.forEach(item => {
+                    (item.slots || []).forEach((slot) => {
+                        const { day, time } = slotToDateAndTime(slot);
+                        if (!todosOsHorarios[day]) todosOsHorarios[day] = new Set();
+                        todosOsHorarios[day].add(time);
+                    });
                 });
                 for (const dia in todosOsHorarios) {
                     todosOsHorarios[dia] = Array.from(todosOsHorarios[dia]).sort();
@@ -78,7 +95,7 @@ export default function App() {
         };
 
         fetchHorarios();
-    }, []);
+    }, [API_URL]);
 
     useEffect(() => {
         if (resultadoMatch.length > 0 && resultadoRef.current) {
@@ -235,7 +252,7 @@ export default function App() {
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.6 }}
             >
-                <h1>Encontre uma especialista ideal para você!</h1>
+                <h1>Encontre uma especialista ideal para si</h1>
                 <p>Cuidar da sua saúde mental é um ato de amor-próprio. Estamos aqui para ajudar.</p>
             </motion.header>
 

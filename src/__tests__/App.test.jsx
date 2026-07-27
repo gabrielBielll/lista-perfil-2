@@ -115,8 +115,9 @@ describe('App.jsx - Orquestração e Integração com API', () => {
     // Pegar a última chamada ao mock para garantir que temos as props após a resolução da API
     const lastCatalogoCallIndex = mockCatalogo.mock.calls.length - 1;
     const catalogoProps = mockCatalogo.mock.calls[lastCatalogoCallIndex][0];
-    expect(catalogoProps.psicologas.find(p => p.id === '1').horarios_disponiveis).toEqual({ '2026-08-01': ['09:00', '10:00'], '2026-08-02': ['14:00'] });
-    expect(catalogoProps.psicologas.find(p => p.id === '2').horarios_disponiveis).toEqual({ '2026-08-03': ['11:00'] });
+    // Visão semanal recorrente: 01/08/2026 = sábado, 02/08 = domingo, 03/08 = segunda.
+    expect(catalogoProps.psicologas.find(p => p.id === '1').horarios_disponiveis).toEqual({ sab: ['09:00', '10:00'], dom: ['14:00'] });
+    expect(catalogoProps.psicologas.find(p => p.id === '2').horarios_disponiveis).toEqual({ seg: ['11:00'] });
     expect(catalogoProps.psicologas.find(p => p.id === '3').horarios_disponiveis).toEqual({}); // Não estava na API, deve ser vazio
     expect(catalogoProps.isLoadingHorarios).toBe(false);
 

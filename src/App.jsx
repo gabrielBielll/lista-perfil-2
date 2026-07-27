@@ -17,14 +17,32 @@ function traduzirDia(dia) {
     return mapaDias[dia.toLowerCase()] || dia;
 }
 
-function slotToDateAndTime(slot) {
+const WEEKDAY_ORDER = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
+const WEEKDAY_FROM_EN = { Sun: 'dom', Mon: 'seg', Tue: 'ter', Wed: 'qua', Thu: 'qui', Fri: 'sex', Sat: 'sab' };
+
+function slotToWeekdayAndTime(slot) {
     const date = new Date(slot.start);
-    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
-    const part = (type) => parts.find((item) => item.type === type)?.value;
+    const weekdayEn = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', weekday: 'short' }).format(date);
     return {
-        day: `${part('year')}-${part('month')}-${part('day')}`,
+        day: WEEKDAY_FROM_EN[weekdayEn],
         time: new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false }).format(date),
     };
+}
+
+// Visão semanal recorrente: agrupa os horários por dia da semana (seg→dom),
+// sem repetir o mesmo horário que ocorre em semanas diferentes.
+function groupByWeekday(slots) {
+    const buckets = {};
+    (slots || []).forEach((slot) => {
+        const { day, time } = slotToWeekdayAndTime(slot);
+        if (!day) return;
+        (buckets[day] = buckets[day] || new Set()).add(time);
+    });
+    const ordered = {};
+    WEEKDAY_ORDER.forEach((key) => {
+        if (buckets[key]) ordered[key] = Array.from(buckets[key]).sort();
+    });
+    return ordered;
 }
 
 export default function App() {
@@ -57,14 +75,7 @@ export default function App() {
                 if (!Array.isArray(availabilityData.psychologists)) throw new Error("Formato de dados da API de horários inesperado.");
 
                 const horariosMap = availabilityData.psychologists.reduce((acc, curr) => {
-                    const byDate = (curr.slots || []).reduce((slotsByDate, slot) => {
-                        const { day, time } = slotToDateAndTime(slot);
-                        if (!slotsByDate[day]) slotsByDate[day] = [];
-                        slotsByDate[day].push(time);
-                        return slotsByDate;
-                    }, {});
-                    Object.values(byDate).forEach((times) => times.sort());
-                    acc[curr.psychologistId] = byDate;
+                    acc[curr.psychologistId] = groupByWeekday(curr.slots);
                     return acc;
                 }, {});
 
@@ -72,19 +83,9 @@ export default function App() {
                     ...psi,
                     horarios_disponiveis: horariosMap[psi.id] || {}
                 })));
-                
-                const todosOsHorarios = {};
-                availabilityData.psychologists.forEach(item => {
-                    (item.slots || []).forEach((slot) => {
-                        const { day, time } = slotToDateAndTime(slot);
-                        if (!todosOsHorarios[day]) todosOsHorarios[day] = new Set();
-                        todosOsHorarios[day].add(time);
-                    });
-                });
-                for (const dia in todosOsHorarios) {
-                    todosOsHorarios[dia] = Array.from(todosOsHorarios[dia]).sort();
-                }
-                setHorariosGerais(todosOsHorarios);
+
+                const todosOsSlots = availabilityData.psychologists.flatMap(item => item.slots || []);
+                setHorariosGerais(groupByWeekday(todosOsSlots));
 
             } catch (err) {
                 logger.error("--- ERRO API HORÁRIOS ---", { erro: err.message });
